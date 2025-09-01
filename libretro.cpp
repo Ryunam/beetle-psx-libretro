@@ -112,6 +112,7 @@ int64 cd_slow_timeout = 8000; // microseconds
 
 // If true, PAL games will run at 60fps
 bool fast_pal = false;
+bool want_fast_pal = false;
 unsigned image_height = 0;
 
 #ifdef HAVE_LIGHTREC
@@ -171,6 +172,44 @@ enum
    REGION_JP = 0,
    REGION_NA = 1,
    REGION_EU = 2,
+};
+
+enum pal_override_toggle
+{
+   PAL_OVERRIDE_TOGGLE_DISABLED = 0,
+   PAL_OVERRIDE_TOGGLE_L1_R1,
+   PAL_OVERRIDE_TOGGLE_L1_R2,
+   PAL_OVERRIDE_TOGGLE_L1_R3,
+   PAL_OVERRIDE_TOGGLE_L2_R1,
+   PAL_OVERRIDE_TOGGLE_L2_R2,
+   PAL_OVERRIDE_TOGGLE_L2_R3,
+   PAL_OVERRIDE_TOGGLE_L3_R1,
+   PAL_OVERRIDE_TOGGLE_L3_R2,
+   PAL_OVERRIDE_TOGGLE_L3_R3,
+   PAL_OVERRIDE_TOGGLE_L1_L2,
+   PAL_OVERRIDE_TOGGLE_L1_L3,
+   PAL_OVERRIDE_TOGGLE_L2_L3,
+   PAL_OVERRIDE_TOGGLE_R1_R2,
+   PAL_OVERRIDE_TOGGLE_R1_R3,
+   PAL_OVERRIDE_TOGGLE_R2_R3,
+   PAL_OVERRIDE_TOGGLE_L1_R1_SELECT,
+   PAL_OVERRIDE_TOGGLE_L1_R1_START,
+   PAL_OVERRIDE_TOGGLE_L2_R2_SELECT,
+   PAL_OVERRIDE_TOGGLE_L2_R2_START,
+   PAL_OVERRIDE_TOGGLE_L1_L2_R1_R2_SELECT,
+   PAL_OVERRIDE_TOGGLE_L1_L2_R1_R2_START,
+   PAL_OVERRIDE_TOGGLE_L3_SELECT,
+   PAL_OVERRIDE_TOGGLE_L3_START,
+   PAL_OVERRIDE_TOGGLE_R3_SELECT,
+   PAL_OVERRIDE_TOGGLE_R3_START,
+};
+
+enum pal_override_notification
+{
+   PAL_OVERRIDE_NOTIFICATION_DISABLED = 0,
+   PAL_OVERRIDE_NOTIFICATION_PERSISTENT,
+   PAL_OVERRIDE_NOTIFICATION_TOGGLE,
+   PAL_OVERRIDE_NOTIFICATION_ALL,
 };
 
 static bool firmware_is_present(unsigned region)
@@ -3127,6 +3166,11 @@ static bool shared_memorycards = false;
 static bool has_new_geometry = false;
 static bool has_new_timing = false;
 
+static bool pal_override_toggle_confirmed = false;
+
+uint8_t pal_override_toggle = PAL_OVERRIDE_TOGGLE_DISABLED;
+uint8_t pal_override_notification = PAL_OVERRIDE_NOTIFICATION_DISABLED;
+
 uint8_t analog_combo[2] = {0};
 uint8_t HOLD = {0};
 
@@ -3358,12 +3402,90 @@ static void check_variables(bool startup)
    var.key = BEETLE_OPT(pal_video_timing_override);
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
-      bool want_fast_pal = (strcmp(var.value, "enabled") == 0);
+      if ((pal_override_toggle != PAL_OVERRIDE_TOGGLE_DISABLED) &&
+         (pal_override_toggle_confirmed))
+      {
+         var.value = want_fast_pal ? "enabled" : "disabled";
+         environ_cb(RETRO_ENVIRONMENT_SET_VARIABLE, &var);
+      }
+      else
+         want_fast_pal = (strcmp(var.value, "enabled") == 0);
 
-      if (want_fast_pal != fast_pal) {
+      if (want_fast_pal != fast_pal)
+      {
          fast_pal = want_fast_pal;
          has_new_timing = true;
       }
+   }
+
+      var.key = BEETLE_OPT(pal_video_timing_override_toggle_combo);
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (strcmp(var.value, "disabled") == 0)
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_DISABLED;
+      else if ((strcmp(var.value, "L1_R1") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_L1_R1;
+      else if ((strcmp(var.value, "L1_R2") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_L1_R2;
+      else if ((strcmp(var.value, "L1_R3") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_L1_R3;
+      else if ((strcmp(var.value, "L2_R1") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_L2_R1;
+      else if ((strcmp(var.value, "L2_R2") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_L2_R2;
+      else if ((strcmp(var.value, "L2_R3") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_L2_R3;
+      else if ((strcmp(var.value, "L3_R1") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_L3_R1;
+      else if ((strcmp(var.value, "L3_R2") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_L3_R2;
+      else if ((strcmp(var.value, "L3_R3") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_L3_R3;
+      else if ((strcmp(var.value, "L1_L2") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_L1_L2;
+      else if ((strcmp(var.value, "L1_L3") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_L1_L3;
+      else if ((strcmp(var.value, "L2_L3") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_L2_L3;
+      else if ((strcmp(var.value, "R1_R2") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_R1_R2;
+      else if ((strcmp(var.value, "R1_R3") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_R1_R3;
+      else if ((strcmp(var.value, "R2_R3") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_R2_R3;
+      else if ((strcmp(var.value, "L1_R1_SELECT") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_L1_R1_SELECT;
+      else if ((strcmp(var.value, "L1_R1_START") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_L1_R1_START;
+      else if ((strcmp(var.value, "L2_R2_SELECT") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_L2_R2_SELECT;
+      else if ((strcmp(var.value, "L2_R2_START") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_L2_R2_START;
+      else if ((strcmp(var.value, "L1_L2_R1_R2_SELECT") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_L1_L2_R1_R2_SELECT;
+      else if ((strcmp(var.value, "L1_L2_R1_R2_START") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_L1_L2_R1_R2_START;
+      else if ((strcmp(var.value, "L3_SELECT") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_L3_SELECT;
+      else if ((strcmp(var.value, "L3_START") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_L3_START;
+      else if ((strcmp(var.value, "R3_SELECT") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_R3_SELECT;
+      else if ((strcmp(var.value, "R3_START") == 0))
+         pal_override_toggle = PAL_OVERRIDE_TOGGLE_R3_START;
+   }
+
+   var.key = BEETLE_OPT(pal_video_timing_override_notification);
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (strcmp(var.value, "disabled") == 0)
+         pal_override_notification = PAL_OVERRIDE_NOTIFICATION_DISABLED;
+      else if (strcmp(var.value, "persistent") == 0)
+         pal_override_notification = PAL_OVERRIDE_NOTIFICATION_PERSISTENT;
+      else if (strcmp(var.value, "toggle") == 0)
+         pal_override_notification = PAL_OVERRIDE_NOTIFICATION_TOGGLE;
+      else if (strcmp(var.value, "all") == 0)
+         pal_override_notification = PAL_OVERRIDE_NOTIFICATION_ALL;
    }
 
    var.key = BEETLE_OPT(analog_calibration);
@@ -4044,6 +4166,194 @@ static void check_variables(bool startup)
    }
 }
 
+static void check_pal_override_toggle(void)
+{
+   static bool pal_override_previous_state = false;
+   bool pal_override_toggle_press          = false;
+   bool show_pal_toggle_message            = ((pal_override_notification == PAL_OVERRIDE_NOTIFICATION_TOGGLE) ||
+                                             (pal_override_notification == PAL_OVERRIDE_NOTIFICATION_ALL));
+
+   switch (pal_override_toggle)
+   {
+      case PAL_OVERRIDE_TOGGLE_L1_R1:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L)  &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_L1_R2:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L)  &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_L1_R3:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L)  &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R3));
+         break;
+      case PAL_OVERRIDE_TOGGLE_L2_R1:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2) &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_L2_R2:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2) &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_L2_R3:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2) &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R3)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_L3_R1:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L3) &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_L3_R2:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L3) &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_L3_R3:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L3) &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R3)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_L1_L2:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L)  &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_L1_L3:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L)  &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L3)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_L2_L3:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2) &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L3)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_R1_R2:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R)  &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_R1_R3:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R)  &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R3)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_R2_R3:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2) &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R3)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_L1_R1_SELECT:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L)  &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R)  &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_L1_R1_START:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L)  &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R)  &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_L2_R2_SELECT:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2) &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2) &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_L2_R2_START:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2) &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2) &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_L1_L2_R1_R2_SELECT:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L)  &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2) &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R)  &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2) &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_L1_L2_R1_R2_START:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L)  &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2) &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R)  &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2) &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_L3_SELECT:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L3) &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_L3_START:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L3) &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_R3_SELECT:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R3) &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT)
+         );
+         break;
+      case PAL_OVERRIDE_TOGGLE_R3_START:
+         pal_override_toggle_press = (
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R3) &&
+            input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START)
+         );
+         break;
+      default:
+         pal_override_toggle_press = false;
+         break;
+   }
+
+   if (pal_override_toggle_press && !pal_override_previous_state)
+   {
+      want_fast_pal = !want_fast_pal;
+      pal_override_toggle_confirmed = true;
+      check_variables(false);
+
+      if (show_pal_toggle_message)
+         MDFN_DispMessage(0, RETRO_LOG_INFO,
+               RETRO_MESSAGE_TARGET_OSD, RETRO_MESSAGE_TYPE_NOTIFICATION_ALT,
+               "Switched to %s", fast_pal ? "60Hz (Forced NTSC)" : "50Hz (Native PAL)");
+   }
+   pal_override_previous_state = pal_override_toggle_press;
+   pal_override_toggle_confirmed = false;
+}
+
 #ifdef NEED_CD
 static void ReadM3U(std::vector<std::string> &file_list, std::string path, unsigned depth = 0)
 {
@@ -4493,7 +4803,9 @@ static bool retro_set_system_av_info(void)
 
 void retro_run(void)
 {
-   bool updated = false;
+   bool updated               = false;
+   bool show_pal_mode_message = ((pal_override_notification == PAL_OVERRIDE_NOTIFICATION_PERSISTENT) ||
+                                 (pal_override_notification == PAL_OVERRIDE_NOTIFICATION_ALL));
    //code to implement audio and video disable is not yet implemented
    //bool disableVideo = false;
    //bool disableAudio = false;
@@ -4501,10 +4813,10 @@ void retro_run(void)
    //int flags = 3;
    //if (environ_cb(RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE, &flags))
    //{
-   //   disableVideo = !(flags & 1);
-   //   disableAudio = !(flags & 2);
-   //   hardDisableAudio = !!(flags & 8);
-   //}
+      //   disableVideo = !(flags & 1);
+      //   disableAudio = !(flags & 2);
+      //   hardDisableAudio = !!(flags & 8);
+      //}
 
    if (gui_show && gui_inited && frame_width > 0 && frame_height > 0)
    {
@@ -4655,10 +4967,14 @@ void retro_run(void)
                         (currently_interlaced ? FPS_NTSC_INTERLACED : FPS_NTSC_NONINTERLACED);
          float internal_fps = (internal_frame_count * fps) / INTERNAL_FPS_SAMPLE_PERIOD;
 
-         snprintf(msg_buffer, sizeof(msg_buffer),
-               "Internal FPS: %.2f", internal_fps);
+         if (content_is_pal && show_pal_mode_message)
+            snprintf(msg_buffer, sizeof(msg_buffer),
+            "%s | Internal FPS: %.2f", fast_pal ? "60Hz (Forced NTSC)" : "50Hz (Native PAL)", internal_fps);
+         else
+            snprintf(msg_buffer, sizeof(msg_buffer),
+            "Internal FPS: %.2f", internal_fps);
 
-         MDFND_DispMessage(1, RETRO_LOG_INFO,
+            MDFND_DispMessage(1, RETRO_LOG_INFO,
                RETRO_MESSAGE_TARGET_OSD, RETRO_MESSAGE_TYPE_STATUS,
                msg_buffer);
 
@@ -4673,6 +4989,21 @@ void retro_run(void)
       internal_frame_count = 0;
    }
 
+   if (!display_internal_framerate && (content_is_pal && show_pal_mode_message))
+   {
+      char msg_buffer[64];
+
+      msg_buffer[0] = '\0';
+
+      snprintf(msg_buffer, sizeof(msg_buffer),
+      "%s", fast_pal ? "60Hz (Forced NTSC)" : "50Hz (Native PAL)");
+
+      if (display_internal_framerate || (content_is_pal && show_pal_mode_message))
+         MDFND_DispMessage(1, RETRO_LOG_INFO,
+         RETRO_MESSAGE_TARGET_OSD, RETRO_MESSAGE_TYPE_STATUS,
+         msg_buffer);
+   }
+
    if (setting_apply_analog_toggle)
    {
       PSX_FIO->SetAMCT(setting_psx_analog_toggle);
@@ -4682,6 +5013,17 @@ void retro_run(void)
    input_poll_cb();
 
    input_update(libretro_supports_bitmasks, input_state_cb);
+
+   if (content_is_pal && (pal_override_toggle != PAL_OVERRIDE_TOGGLE_DISABLED))
+   {
+      check_pal_override_toggle();
+
+      if (has_new_timing)
+      {
+         if (retro_set_system_av_info())
+            has_new_timing = false;
+      }
+   }
 
    static int32 rects[MEDNAFEN_CORE_GEOMETRY_MAX_H];
    rects[0] = ~0;
@@ -4930,7 +5272,6 @@ void retro_run(void)
       GPU_set_display_possibly_dirty(false);
    }
 }
-
 void retro_get_system_info(struct retro_system_info *info)
 {
    memset(info, 0, sizeof(*info));
